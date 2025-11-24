@@ -19,8 +19,8 @@ st.set_page_config(page_title="Electronics Prediction Service", layout="wide")
 
 @st.cache_data
 def load_data():
-    # Load the processed data which contains all 74 engineered features
-    df = pd.read_csv('consumer_behavior_electronics_processed_complete.csv')
+    # Load data from the 'data/' directory
+    df = pd.read_csv('data/consumer_behavior_electronics_processed_complete.csv')
     df['date'] = pd.to_datetime(df['date'])
     return df
 
@@ -30,16 +30,16 @@ def load_models():
     
     # Load Random Forest (Best Accuracy: 5.14% sMAPE)
     try:
-        with open('random_forest_production.pkl', 'rb') as f:
+        with open('models/random_forest_production.pkl', 'rb') as f:
             models['Random Forest'] = pickle.load(f)
     except FileNotFoundError:
-        st.error("⚠️ model file 'random_forest_production.pkl' not found.")
+        st.error("⚠️ Model 'models/random_forest_production.pkl' not found.")
         models['Random Forest'] = None
 
     # Load Tuned LightGBM (Best Direction: 88.63%)
     try:
-        # Load as Booster from text file
-        models['Tuned LightGBM'] = lgb.Booster(model_file='tuned_lightgbm_production.txt')
+        # Load as Booster from text file in 'models/' directory
+        models['Tuned LightGBM'] = lgb.Booster(model_file='models/tuned_lightgbm_production.txt')
     except Exception as e:
         # Fallback if file missing or load fails
         models['Tuned LightGBM'] = None
@@ -61,51 +61,53 @@ feature_cols = [c for c in df.columns if c not in non_feature_cols]
 def get_predictions(brand, months_ahead, model_name):
     """
     Generates predictions using the selected ML model.
-    Uses the latest available data point features as the baseline.
+    Uses the latest available data point features for prediction.
     """
     model = models.get(model_name)
     if not model:
-        return []
+        return [], df['date'].max()
 
+    # Get all unique products for the selected brand
     brand_products = df[df['brand'] == brand]['product'].unique()
     predictions_data = []
     latest_date = df['date'].max()
 
     for product in brand_products:
-        # Get latest feature row for this product
-        product_data = df[(df['brand'] == brand) & (df['product'] == product)]
+        product_data = df[(df['brand'] == brand) & (df['product'] == product)].copy()
         
-        if product_data.empty:
+        # We need at least 12 months of historical data to compute all features
+        if len(product_data) < 12:
             continue
             
-        # Extract features for the model
+        # Extract features for the model using the latest point in time
         latest_features = product_data[feature_cols].iloc[-1:].values
         
         # 1. Generate Base Prediction (Next Month)
         if model_name == 'Random Forest':
             base_pred = model.predict(latest_features)[0]
-        else: # LightGBM
+        else: # Tuned LightGBM
             base_pred = model.predict(latest_features)[0]
             
         # 2. Generate Multi-month Forecast
-        # (Since we don't have a recursive feature pipeline in the dashboard,
-        # we project the base prediction using simple seasonal multipliers)
         forecasts = []
         for i in range(1, months_ahead + 1):
             future_date = latest_date + timedelta(days=30 * i)
             
-            # Apply slight seasonality adjustments to the ML prediction
+            # Apply seasonal adjustments
             seasonal_factor = 1.0
-            if future_date.month in [11, 12]: seasonal_factor = 1.2 # Holidays
-            if future_date.month == 1: seasonal_factor = 0.85       # Post-holiday dip
+            if future_date.month in [11, 12]: seasonal_factor = 1.2 # Holiday season
+            elif future_date.month == 1: seasonal_factor = 0.85       # Post-holiday dip
             
-            # Add some variance for realism in demo if flat
-            trend_factor = 1.0 + (np.random.normal(0, 0.02)) 
+            # Small random variance for demo realism
+            trend_factor = 1.0 + (np.random.normal(0, 0.01)) 
             
             final_pred = base_pred * seasonal_factor * trend_factor
-            forecasts.append(int(max(final_pred, 0)))
+            forecasts.append(int(max(final_pred, 100))) # Ensure positive predictions
+            
+            # Use prediction as base for next month (simplified trend)
+            base_pred = final_pred 
 
-        # Calculate trend direction
+        # Calculate trend direction vs current sales
         current_sales = product_data.iloc[-1]['sales_units']
         trend = 'up' if forecasts[0] > current_sales else 'down'
         
@@ -126,82 +128,112 @@ st.title("📈 Electronics Consumer Prediction")
 st.markdown("AI-Powered Sales Forecasting Dashboard")
 
 # --- Sidebar Controls ---
-st.sidebar.header("Configuration")
+st.sidebar.header("Prediction Parameters")
 
+# Requirement 1: Brand Search (Loaded dynamically from data)
+available_brands = sorted(df['brand'].unique().tolist())
 selected_brand = st.sidebar.selectbox(
     "Select Brand",
-    options=sorted(df['brand'].unique())
+    options=available_brands
 )
 
+# Requirement 2: Timeline Selection (1, 2, or 3 months)
 timeline = st.sidebar.selectbox(
     "Forecast Timeline",
     options=[1, 2, 3],
-    format_func=lambda x: f"{x} Month(s) Ahead"
+    format_func=lambda x: f"{x} month(s)"
 )
 
+# Model Selection (Deployment Option A)
 model_choice = st.sidebar.selectbox(
     "Select Model",
     ["Random Forest", "Tuned LightGBM"],
-    help="Random Forest provides best accuracy (5.14% error). LightGBM provides best trend detection."
+    help="Random Forest (Best Accuracy). LightGBM (Best Direction)."
 )
 
-if st.sidebar.button("GENERATE PREDICTIONS", type="primary"):
+predict_button = st.sidebar.button("GENERATE PREDICTIONS", type="primary")
+
+# ============================================================================
+# MAIN DISPLAY AREA
+# ============================================================================
+
+if predict_button and selected_brand:
     
-    # --- Results Display ---
+    # --- Requirement 3: Predictions Display ---
     st.header(f"Forecast for {selected_brand}")
-    st.caption(f"Using Model: {model_choice}")
+    st.caption(f"**Model:** {model_choice} | **Forecast Period:** Next {timeline} month(s)")
     
     preds, start_date = get_predictions(selected_brand, timeline, model_choice)
     
-    # Summary Metrics
-    total_sales = sum([sum(p['predictions']) for p in preds])
-    
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Projected Total Volume", f"{total_sales:,}")
-    col2.metric("Products Analyzed", len(preds))
-    col3.metric("Forecast Horizon", f"{timeline} Months")
-    
-    st.divider()
-    
-    # Product Breakdown
-    for p in preds:
-        with st.expander(f"📱 {p['product']}", expanded=True):
-            c1, c2 = st.columns([1, 2])
-            
-            with c1:
-                st.subheader(f"{p['predictions'][0]:,} units")
-                st.caption("Next Month Projection")
+    if not preds:
+        st.warning(f"No sufficient data to generate predictions for {selected_brand}.")
+        
+    else:
+        # Summary Statistics
+        total_sales = sum([sum(p['predictions']) for p in preds])
+        
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Projected Total Volume", f"{total_sales:,} units")
+        col2.metric("Products Analyzed", len(preds))
+        col3.metric("Forecast Horizon", f"{timeline} Months")
+        
+        st.divider()
+        
+        # Individual Product Cards
+        for p in preds:
+            with st.expander(f"📱 **{p['product']}**", expanded=True):
+                c1, c2 = st.columns([1, 2])
                 
-                # Trend Indicator
-                if p['trend'] == 'up':
-                    st.success(f"Trending Up ↗ (vs current {p['current']:,})")
-                else:
-                    st.warning(f"Trending Down ↘ (vs current {p['current']:,})")
-            
-            with c2:
-                # Simple Bar Chart
-                dates = [(start_date + timedelta(days=30*i)).strftime("%b %Y") for i in range(1, timeline+1)]
-                fig = go.Figure(data=[
-                    go.Bar(name='Forecast', x=dates, y=p['predictions'], marker_color='#4CAF50')
-                ])
-                fig.update_layout(
-                    margin=dict(l=0, r=0, t=0, b=0),
-                    height=150,
-                    paper_bgcolor='rgba(0,0,0,0)',
-                    plot_bgcolor='rgba(0,0,0,0)'
-                )
-                st.plotly_chart(fig, use_container_width=True)
+                with c1:
+                    # Trend Indicator
+                    trend_icon = "📈" if p['trend'] == 'up' else "📉"
+                    trend_color = "green" if p['trend'] == 'up' else "red"
+                    
+                    st.subheader(f"{p['predictions'][0]:,} units")
+                    st.caption("Next Month Projection")
+                    st.markdown(f"**Trend:** {trend_icon} :{trend_color}[**{p['trend'].upper()}**] (vs current {p['current']:,})")
+
+                    st.markdown("**Monthly Breakdown:**")
+                    for i, pred in enumerate(p['predictions'], 1):
+                        future_date = start_date + timedelta(days=30 * i)
+                        st.write(f"{future_date.strftime('%b %Y')}: **{pred:,}**")
+                
+                with c2:
+                    # Visual Charts
+                    dates = [(start_date + timedelta(days=30*i)).strftime("%b %Y") for i in range(1, timeline+1)]
+                    
+                    fig = go.Figure()
+                    fig.add_trace(go.Bar(
+                        x=dates,
+                        y=p['predictions'],
+                        marker_color='#4CAF50',
+                        text=[f"{val:,}" for val in p['predictions']],
+                        textposition='outside',
+                        name='Predicted Sales'
+                    ))
+                    
+                    fig.update_layout(
+                        title=f"{p['product']} Forecast",
+                        xaxis_title="Month",
+                        yaxis_title="Sales Units",
+                        height=300,
+                        showlegend=False,
+                        margin=dict(t=40, b=0, l=0, r=0)
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
 
 else:
-    # Landing Page Content
+    # Landing Page
     st.info("👈 Select a brand and click 'Generate Predictions' to start.")
-    st.markdown("### Model Performance Specs")
-    perf_data = {
+    st.markdown("### Model Performance")
+    st.table(pd.DataFrame({
         "Model": ["Random Forest", "Tuned LightGBM"],
         "Accuracy (sMAPE)": ["5.14% (Best)", "5.22%"],
         "Trend Accuracy": ["87.63%", "88.63% (Best)"]
-    }
-    st.table(pd.DataFrame(perf_data))
+    }))
+    
+    st.markdown("### Available Brands")
+    st.write(", ".join(available_brands))
 
 # ============================================================================
 # FOOTER
