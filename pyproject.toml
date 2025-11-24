@@ -1,0 +1,6 @@
+[project]
+name = "for-web-dev-saran"
+version = "0.1.0"
+
+[tool.streamlit]
+python_version = "3.9"
