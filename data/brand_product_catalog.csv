@@ -1,0 +1,26 @@
+brand,product,category
+Apple,Apple Airpods Headphones,Electronics
+Apple,apple electronics.audio.headphone,Electronics
+Apple,apple electronics.clocks,Electronics
+Apple,apple electronics.smartphone,Electronics
+Apple,iPhone,Electronics
+HP,hp computers.components.cooler,Electronics
+HP,hp computers.desktop,Electronics
+HP,hp computers.notebook,Electronics
+HP,hp computers.peripherals.printer,Electronics
+HP,hp stationery.cartrige,Electronics
+LG,lg appliances.environment.vacuum,Electronics
+LG,lg appliances.kitchen.microwave,Electronics
+LG,lg appliances.kitchen.refrigerators,Electronics
+LG,lg appliances.kitchen.washer,Electronics
+LG,lg electronics.video.tv,Electronics
+Samsung,samsung Electronics,Electronics
+Samsung,samsung appliances.environment.vacuum,Electronics
+Samsung,samsung appliances.kitchen.washer,Electronics
+Samsung,samsung electronics.smartphone,Electronics
+Samsung,samsung electronics.video.tv,Electronics
+Sony,sony Electronics,Electronics
+Sony,sony apparel.glove,Electronics
+Sony,sony computers.peripherals.joystick,Electronics
+Sony,sony electronics.audio.headphone,Electronics
+Sony,sony electronics.video.tv,Electronics
