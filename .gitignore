@@ -1,0 +1,6 @@
+# Ignore the virtual environment
+mlenv/
+
+# Ignore other common Python artifacts
+__pycache__/
+*.py[cod]
