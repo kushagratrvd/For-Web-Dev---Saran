@@ -577,27 +577,25 @@ with tab1:
             
             # Product-wise Predictions
             for p in preds:
-                with st.expander(f"📱 **{p['product']}**", expanded=True):
+                with st.expander(f"**{p['product']}**", expanded=True):
                     c1, c2 = st.columns([1, 2])
                     
                     with c1:
                         # Metrics
-                        trend_icon = "📈" if p['trend'] == 'up' else "📉"
-                        trend_color = "green" if p['trend'] == 'up' else "red"
                         change_pct = ((p['predictions'][0] - p['current']) / p['current'] * 100)
                         
                         st.metric(
                             "Next Month Projection",
                             f"{p['predictions'][0]:,} units",
-                            f"{change_pct:+.1f}%",
+                            #f"{change_pct:+.1f}%",
                             delta_color="normal" if p['trend'] == 'up' else "inverse"
                         )
                         
                         st.markdown(f"**Current Sales:** {p['current']:,} units")
-                        st.markdown(f"**Trend:** {trend_icon} :{trend_color}[**{p['trend'].upper()}**]")
+                        #st.markdown(f"**Trend:** {trend_icon} :{trend_color}[**{p['trend'].upper()}**]")
                         
                         st.markdown("---")
-                        st.markdown("**📅 Monthly Breakdown:**")
+                        st.markdown("**Monthly Breakdown:**")
                         for i, pred in enumerate(p['predictions'], 1):
                             future_date = start_date + timedelta(days=30 * i)
                             st.write(f"• {future_date.strftime('%b %Y')}: **{pred:,}** units")
@@ -737,8 +735,8 @@ with tab3:
     st.markdown("### Performance Comparison Table")
     perf_df = pd.DataFrame({
         "Model": ["Random Forest", "Tuned LightGBM"],
-        "Accuracy (sMAPE)": ["5.14% ⭐", "5.22%"],
-        "Trend Accuracy": ["87.63%", "88.63% ⭐"],
+        "Accuracy (sMAPE)": ["5.14% ", "5.22%"],
+        "Trend Accuracy": ["87.63%", "88.63% "],
         "Training Time": ["Medium", "Fast"],
         "Inference Speed": ["Fast", "Very Fast"]
     })
@@ -766,7 +764,6 @@ with tab3:
 st.markdown("<br><br>", unsafe_allow_html=True)
 st.markdown("""
 <div style='text-align: center; color: white; padding: 2rem; background: rgba(255,255,255,0.1); border-radius: 15px;'>
-    <strong>Consumer Behavior Prediction Service</strong> | Electronics Domain | Powered by Machine Learning<br>
-    © 2024 AI Forecasting Solutions
+    <strong>Consumer Behavior Prediction Service</strong> | Electronics Domain
 </div>
 """, unsafe_allow_html=True)
