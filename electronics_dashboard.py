@@ -369,12 +369,12 @@ def load_models():
     models = {}
     
     # Load Random Forest (Best Accuracy: 5.14% sMAPE)
-    try:
-        with open('models/random_forest_production.pkl', 'rb') as f:
-            models['Random Forest'] = pickle.load(f)
-    except FileNotFoundError:
-        st.error("⚠️ Model 'models/random_forest_production.pkl' not found.")
-        models['Random Forest'] = None
+    #try:
+        #with open('models/random_forest_production.pkl', 'rb') as f:
+            #models['Random Forest'] = pickle.load(f)
+    #except FileNotFoundError:
+        #st.error("⚠️ Model 'models/random_forest_production.pkl' not found.")
+        #models['Random Forest'] = None
 
     # Load Tuned LightGBM (Best Direction: 88.63%)
     try:
@@ -417,10 +417,10 @@ def get_predictions(brand, months_ahead, model_name):
             
         latest_features = product_data[feature_cols].iloc[-1:].values
         
-        if model_name == 'Random Forest':
-            base_pred = model.predict(latest_features)[0]
-        else:
-            base_pred = model.predict(latest_features)[0]
+        #if model_name == 'Random Forest':
+            #base_pred = model.predict(latest_features)[0]
+        #else:
+        base_pred = model.predict(latest_features)[0]
             
         forecasts = []
         for i in range(1, months_ahead + 1):
@@ -491,9 +491,9 @@ with st.sidebar:
     
     # Model Selection
     model_choice = st.selectbox(
-        "AI Model",
-        ["Random Forest", "Tuned LightGBM"],
-        help="Random Forest (Best Accuracy) | LightGBM (Best Direction)"
+        "ML Model",
+        ["Tuned LightGBM"],
+        help="Tuned LightGBM"
     )
     
     predict_button = st.button("Generate Predictions")
@@ -594,7 +594,7 @@ with tab1:
                         st.markdown(f"**Current Sales:** {p['current']:,} units")
                         #st.markdown(f"**Trend:** {trend_icon} :{trend_color}[**{p['trend'].upper()}**]")
                         
-                        st.markdown("---")
+                        #st.markdown("---")
                         st.markdown("**Monthly Breakdown:**")
                         for i, pred in enumerate(p['predictions'], 1):
                             future_date = start_date + timedelta(days=30 * i)
@@ -703,46 +703,23 @@ with tab2:
 with tab3:
     st.markdown('<div class="section-title"> Model Performance Metrics</div>', unsafe_allow_html=True)
     st.markdown('<div class="section-subtitle">Detailed accuracy and performance statistics</div>', unsafe_allow_html=True)
-    
+
     col1, col2 = st.columns(2)
     
     with col1:
-        st.markdown("### Random Forest")
-        st.success("✅ **Best for Accuracy**")
-        st.metric("sMAPE Score", "5.14%", "-0.08%", delta_color="inverse")
-        st.metric("Trend Accuracy", "87.63%")
-        st.markdown("""
-        **Strengths:**
-        - Highest numerical accuracy
-        - Robust to outliers
-        - Good generalization
-        """)
-    
-    with col2:
-        st.markdown("### Tuned LightGBM")
-        st.success("✅ **Best for Trend Direction**")
         st.metric("sMAPE Score", "5.22%")
-        st.metric("Trend Accuracy", "88.63%", "+1.0%")
-        st.markdown("""
-        **Strengths:**
-        - Best directional accuracy
-        - Fast inference time
-        - Efficient memory usage
-        """)
+    with col2:
+        st.metric("Trend Accuracy", "88.63%")
+
+    st.markdown("""
+    **Strengths:**
+    - Best directional accuracy (correctly predicts if sales go up or down).
+    - Very fast prediction (inference) time.
+    - Highly efficient memory usage, ideal for cloud deployment.
+    """)
     
     st.markdown("---")
-    
-    st.markdown("### Performance Comparison Table")
-    perf_df = pd.DataFrame({
-        "Model": ["Random Forest", "Tuned LightGBM"],
-        "Accuracy (sMAPE)": ["5.14% ", "5.22%"],
-        "Trend Accuracy": ["87.63%", "88.63% "],
-        "Training Time": ["Medium", "Fast"],
-        "Inference Speed": ["Fast", "Very Fast"]
-    })
-    st.dataframe(perf_df, use_container_width=True, hide_index=True)
-    
-    st.markdown("---")
+
     st.markdown("### Available Brands")
     # Chunk brands into groups of 5 to match the layout of Tab 1
     chunks = [available_brands[i:i + 5] for i in range(0, len(available_brands), 5)]
